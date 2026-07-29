@@ -4,25 +4,27 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
-import { User, Mail, Building2 } from "lucide-react";
+import { User, Mail, Building2, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { BLOOD_TYPES } from "@/lib/blood-type-data";
+import { ApiError } from "@/lib/api";
 
 function fieldsFromUser(user: ReturnType<typeof useAuth>["user"]) {
   return {
     name: user?.name || "",
-    email: user?.email || "",
     bloodType: user?.bloodType || "",
     hospitalName: user?.hospitalName || "",
   };
 }
 
 export default function Profile() {
-  const { user, updateUser } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState(fieldsFromUser(user));
-  const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string }>({});
   const [saving, setSaving] = useState(false);
 
   const startEditing = () => {
@@ -37,28 +39,29 @@ export default function Profile() {
     setIsEditing(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const nextErrors: { name?: string; email?: string } = {};
+    const nextErrors: { name?: string } = {};
     if (!formData.name.trim()) nextErrors.name = "Name is required.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      nextErrors.email = "Enter a valid email address.";
-    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
     setSaving(true);
-    setTimeout(() => {
-      updateUser(formData);
-      setSaving(false);
+    try {
+      await updateProfile(formData);
       setIsEditing(false);
       toast({ title: "Profile updated", description: "Your changes have been saved." });
-    }, 500);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Could not save your changes.";
+      toast({ title: "Something went wrong", description: message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-serif font-bold mb-2">Profile Settings</h1>
@@ -107,38 +110,45 @@ export default function Profile() {
                     <Input
                       id="profile-email"
                       type="email"
-                      disabled={!isEditing}
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="pl-10"
-                      aria-invalid={!!errors.email}
-                      aria-describedby={errors.email ? "profile-email-error" : undefined}
+                      disabled
+                      value={user?.email || ""}
+                      className="pl-10 pr-10"
                     />
+                    <Lock className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   </div>
-                  {errors.email && <p id="profile-email-error" className="text-sm text-destructive">{errors.email}</p>}
                 </div>
 
                 {user?.role === "donor" && (
                   <div className="space-y-2">
-                    <Label>Blood Type</Label>
-                    <Input 
-                      disabled={!isEditing} 
+                    <Label htmlFor="profile-bloodtype">Blood Type</Label>
+                    <Select
                       value={formData.bloodType}
-                      onChange={(e) => setFormData({...formData, bloodType: e.target.value})}
-                    />
+                      onValueChange={(v) => setFormData({...formData, bloodType: v})}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger id="profile-bloodtype">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BLOOD_TYPES.map((bt) => (
+                          <SelectItem key={bt} value={bt}>{bt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
 
                 {user?.role === "hospital" && (
                   <div className="space-y-2">
-                    <Label>Facility Name</Label>
+                    <Label htmlFor="profile-hospital">Facility Name</Label>
                     <div className="relative">
                       <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        disabled={!isEditing} 
+                      <Input
+                        id="profile-hospital"
+                        disabled={!isEditing}
                         value={formData.hospitalName}
                         onChange={(e) => setFormData({...formData, hospitalName: e.target.value})}
-                        className="pl-10" 
+                        className="pl-10"
                       />
                     </div>
                   </div>

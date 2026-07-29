@@ -1,6 +1,5 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import type { Request } from "@/lib/mock-data";
-import { useRequests } from "@/lib/store/requests-store";
+import { useRequests, type BloodRequest } from "@/lib/store/requests-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,29 +11,33 @@ import { cn } from "@/lib/utils";
 import { NewRequestDialog } from "./NewRequestDialog";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/EmptyState";
+import { ApiError } from "@/lib/api";
 
 export default function Requests() {
   const { user } = useAuth();
   const { requests, fulfillRequest } = useRequests();
   const { toast } = useToast();
-  const [selectedReq, setSelectedReq] = useState<Request | null>(null);
+  const [selectedReq, setSelectedReq] = useState<BloodRequest | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const handleRespond = () => {
+  const handleRespond = async () => {
     if (!selectedReq) return;
     setIsConfirming(true);
-    setTimeout(() => {
+    try {
+      await fulfillRequest(selectedReq.id);
       setIsConfirming(false);
       setSuccess(true);
-      const fulfilledId = selectedReq.id;
       setTimeout(() => {
         setSuccess(false);
         setSelectedReq(null);
-        fulfillRequest(fulfilledId);
         toast({ title: "Thank you", description: "The hospital has been notified you're on your way." });
       }, 2000);
-    }, 1000);
+    } catch (err) {
+      setIsConfirming(false);
+      const message = err instanceof ApiError ? err.message : "Could not respond to this request.";
+      toast({ title: "Something went wrong", description: message, variant: "destructive" });
+    }
   };
 
   return (
@@ -42,7 +45,7 @@ export default function Requests() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold mb-2">Active Requests</h1>
-          <p className="text-muted-foreground">Live feed of blood needs in your area.</p>
+          <p className="text-muted-foreground">Live feed of blood needs.</p>
         </div>
         {user?.role === "hospital" && <NewRequestDialog />}
       </div>
@@ -64,7 +67,7 @@ export default function Requests() {
               <div className="flex flex-col sm:flex-row items-stretch">
                 <div className="p-6 flex-1">
                   <div className="flex items-center gap-3 mb-3">
-                    <Badge 
+                    <Badge
                       variant="outline"
                       className={cn(
                         "px-2.5 py-0.5",
@@ -78,31 +81,31 @@ export default function Requests() {
                     </Badge>
                     <span className="text-sm text-muted-foreground flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" />
-                      {new Date(req.postedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  
+
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-bold text-xl mb-1">{req.hospital}</h3>
+                      <h3 className="font-bold text-xl mb-1">{req.hospitalName}</h3>
                       <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
                         <MapPin className="h-3.5 w-3.5" />
-                        {req.location} ({req.distance})
+                        {req.location}
                       </p>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-secondary/30 p-6 flex sm:flex-col items-center sm:justify-center justify-between border-t sm:border-t-0 sm:border-l w-full sm:w-48">
                   <div className="text-center">
                     <div className="text-3xl font-serif font-bold text-foreground">{req.bloodType}</div>
                     <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">{req.units} Units Needed</div>
                   </div>
-                  
+
                   {user?.role === "donor" && (
                     <Dialog open={selectedReq?.id === req.id} onOpenChange={(open) => !open && setSelectedReq(null)}>
                       <DialogTrigger asChild>
-                        <Button 
+                        <Button
                           className="w-full"
                           variant={req.urgency === "Critical" ? "destructive" : "default"}
                           onClick={() => setSelectedReq(req)}
@@ -129,8 +132,8 @@ export default function Requests() {
                             </DialogHeader>
                             <div className="py-6 space-y-4">
                               <div className="bg-muted p-4 rounded-lg">
-                                <h4 className="font-medium mb-1">{req.hospital}</h4>
-                                <p className="text-sm text-muted-foreground">{req.location} • {req.distance}</p>
+                                <h4 className="font-medium mb-1">{req.hospitalName}</h4>
+                                <p className="text-sm text-muted-foreground">{req.location}</p>
                               </div>
                               <p className="text-sm font-medium text-destructive">
                                 By confirming, you pledge to travel to this location as soon as possible.
@@ -138,9 +141,9 @@ export default function Requests() {
                             </div>
                             <DialogFooter>
                               <Button variant="outline" onClick={() => setSelectedReq(null)}>Cancel</Button>
-                              <Button 
-                                variant="destructive" 
-                                onClick={handleRespond} 
+                              <Button
+                                variant="destructive"
+                                onClick={handleRespond}
                                 disabled={isConfirming}
                               >
                                 {isConfirming ? "Confirming..." : "I'm On My Way"}

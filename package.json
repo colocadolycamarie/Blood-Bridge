@@ -8,7 +8,8 @@
     "scripts"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=@workspace/blood-bridge",
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:web": "npm run dev --workspace=@workspace/blood-bridge",
     "dev:api": "npm run dev --workspace=@workspace/api-server",
     "build": "npm run typecheck && npm run build --workspaces --if-present",
     "typecheck:libs": "tsc --build",
@@ -16,6 +17,7 @@
   },
   "private": true,
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "prettier": "^3.9.4",
     "typescript": "~5.9.3"
   }

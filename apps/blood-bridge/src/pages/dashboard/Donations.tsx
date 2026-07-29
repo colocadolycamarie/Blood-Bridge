@@ -11,8 +11,8 @@ import { useAuth } from "@/components/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDonations } from "@/lib/store/donations-store";
 import { EmptyState } from "@/components/EmptyState";
-
-const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+import { BLOOD_TYPES } from "@/lib/blood-type-data";
+import { ApiError } from "@/lib/api";
 
 interface FormState {
   date: string;
@@ -29,8 +29,9 @@ export default function Donations() {
   const [isOpen, setIsOpen] = useState(false);
   const [form, setForm] = useState<FormState>({ ...EMPTY_FORM, bloodType: user?.bloodType || "" });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors: Partial<Record<keyof FormState, string>> = {};
     if (!form.date) nextErrors.date = "Select a date.";
@@ -39,11 +40,19 @@ export default function Donations() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    addDonation({ date: form.date, hospital: form.hospital.trim(), bloodType: form.bloodType });
-    setIsOpen(false);
-    setForm({ ...EMPTY_FORM, bloodType: user?.bloodType || "" });
-    setErrors({});
-    toast({ title: "Donation logged", description: "Added to your donation history." });
+    setSubmitting(true);
+    try {
+      await addDonation({ date: form.date, hospital: form.hospital.trim(), bloodType: form.bloodType });
+      setIsOpen(false);
+      setForm({ ...EMPTY_FORM, bloodType: user?.bloodType || "" });
+      setErrors({});
+      toast({ title: "Donation logged", description: "Added to your donation history." });
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Could not log this donation.";
+      toast({ title: "Something went wrong", description: message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -105,7 +114,9 @@ export default function Donations() {
                 </Select>
                 {errors.bloodType && <p className="text-sm text-destructive">{errors.bloodType}</p>}
               </div>
-              <Button type="submit" className="w-full">Save Record</Button>
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? "Saving…" : "Save Record"}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -121,9 +132,9 @@ export default function Donations() {
                     <Droplet className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg">{don.hospital}</h3>
+                    <h3 className="font-bold text-lg">{don.hospitalName}</h3>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {don.date}</span>
+                      <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {don.donatedOn}</span>
                       <span className="px-2 py-0.5 bg-success/10 text-success rounded text-xs font-medium">{don.status}</span>
                     </div>
                   </div>

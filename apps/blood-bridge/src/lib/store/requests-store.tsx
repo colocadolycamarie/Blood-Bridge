@@ -1,10 +1,19 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { mockRequests, type Request, type Urgency } from "@/lib/mock-data";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { apiFetch } from "@/lib/api";
+import type { Urgency } from "@/lib/blood-type-data";
 
-const STORAGE_KEY = "blood-bridge-requests";
+export interface BloodRequest {
+  id: string;
+  hospitalName: string;
+  location: string;
+  bloodType: string;
+  units: number;
+  urgency: Urgency;
+  status: "open" | "fulfilled";
+  createdAt: string;
+}
 
 interface NewRequestInput {
-  hospital: string;
   location: string;
   bloodType: string;
   units: number;
@@ -12,47 +21,44 @@ interface NewRequestInput {
 }
 
 interface RequestsContextType {
-  requests: Request[];
-  addRequest: (input: NewRequestInput) => Request;
-  fulfillRequest: (id: string) => void;
+  requests: BloodRequest[];
+  isLoading: boolean;
+  refresh: () => Promise<void>;
+  addRequest: (input: NewRequestInput) => Promise<BloodRequest>;
+  fulfillRequest: (id: string) => Promise<void>;
 }
 
 const RequestsContext = createContext<RequestsContextType | undefined>(undefined);
 
-function loadInitial(): Request[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {
-    // Corrupted storage — fall back to seed data.
-  }
-  return mockRequests;
-}
-
 export function RequestsProvider({ children }: { children: ReactNode }) {
-  const [requests, setRequests] = useState<Request[]>(loadInitial);
+  const [requests, setRequests] = useState<BloodRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    const data = await apiFetch<{ requests: BloodRequest[] }>("/requests");
+    setRequests(data.requests);
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
-  }, [requests]);
+    refresh().finally(() => setIsLoading(false));
+  }, [refresh]);
 
-  const addRequest = (input: NewRequestInput) => {
-    const newRequest: Request = {
-      id: `REQ-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-      distance: "0.0 miles",
-      postedAt: new Date().toISOString(),
-      ...input,
-    };
-    setRequests((prev) => [newRequest, ...prev]);
-    return newRequest;
-  };
+  const addRequest = useCallback(async (input: NewRequestInput) => {
+    const data = await apiFetch<{ request: BloodRequest }>("/requests", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    setRequests((prev) => [data.request, ...prev]);
+    return data.request;
+  }, []);
 
-  const fulfillRequest = (id: string) => {
+  const fulfillRequest = useCallback(async (id: string) => {
+    await apiFetch(`/requests/${id}/fulfill`, { method: "POST" });
     setRequests((prev) => prev.filter((r) => r.id !== id));
-  };
+  }, []);
 
   return (
-    <RequestsContext.Provider value={{ requests, addRequest, fulfillRequest }}>
+    <RequestsContext.Provider value={{ requests, isLoading, refresh, addRequest, fulfillRequest }}>
       {children}
     </RequestsContext.Provider>
   );

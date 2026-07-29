@@ -1,36 +1,43 @@
 import { Link, useLocation } from "wouter";
-import { useAuth, type UserRole } from "@/components/auth/AuthContext";
+import { useAuth } from "@/components/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
-import { Building2, User as UserIcon, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { Navbar } from "@/components/layout/Navbar";
-import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/Logo";
+import { ApiError } from "@/lib/api";
 
 export default function Login() {
   const { login } = useAuth();
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Exclude<UserRole, null>>("donor");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     if (!email || !password) {
       setError("Please fill in all fields.");
       return;
     }
-    login(email, role);
-    setLocation("/dashboard");
+    setSubmitting(true);
+    try {
+      await login(email, password);
+      setLocation("/dashboard");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not sign in. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleForgotPassword = () => {
-    // No backend is connected in this build, so this simulates the standard
-    // "don't reveal whether the account exists" reset flow rather than a dead link.
     setResetSent(true);
   };
 
@@ -47,57 +54,26 @@ export default function Login() {
             <p className="text-muted-foreground">Sign in to your Blood Bridge account</p>
           </div>
 
-          <div className="mb-6">
-            <Label className="mb-2 block">Signing in as</Label>
-            <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-lg" role="radiogroup" aria-label="Account type">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={role === "donor"}
-                onClick={() => setRole("donor")}
-                className={cn(
-                  "flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  role === "donor" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <UserIcon className="h-4 w-4" aria-hidden="true" />
-                Donor
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={role === "hospital"}
-                onClick={() => setRole("hospital")}
-                className={cn(
-                  "flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  role === "hospital" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Building2 className="h-4 w-4" aria-hidden="true" />
-                Hospital
-              </button>
-            </div>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="p-3 text-sm bg-destructive/10 text-destructive border border-destructive/20 rounded-md" role="alert">
                 {error}
               </div>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email address</Label>
-              <Input 
-                id="email" 
-                type="email" 
+              <Input
+                id="email"
+                type="email"
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-12"
+                autoComplete="email"
               />
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
@@ -109,13 +85,13 @@ export default function Login() {
                   Forgot password?
                 </button>
               </div>
-              <Input 
-                id="password" 
-                type="password" 
+              <PasswordInput
+                id="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-12"
+                autoComplete="current-password"
               />
               {resetSent && (
                 <p className="flex items-center gap-1.5 text-sm text-muted-foreground pt-1">
@@ -125,8 +101,8 @@ export default function Login() {
               )}
             </div>
 
-            <Button type="submit" className="w-full h-12 text-lg">
-              Log In
+            <Button type="submit" className="w-full h-12 text-lg" disabled={submitting}>
+              {submitting ? "Signing in…" : "Log In"}
             </Button>
           </form>
 

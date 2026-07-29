@@ -18,10 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/components/auth/AuthContext";
 import { useRequests } from "@/lib/store/requests-store";
 import { useToast } from "@/hooks/use-toast";
-import type { Urgency } from "@/lib/mock-data";
+import { ApiError } from "@/lib/api";
+import type { Urgency } from "@/lib/blood-type-data";
 import { Plus } from "lucide-react";
 
 const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -37,7 +37,6 @@ interface FormState {
 const EMPTY_FORM: FormState = { location: "", bloodType: "", units: "", urgency: "" };
 
 export function NewRequestDialog() {
-  const { user } = useAuth();
   const { addRequest } = useRequests();
   const { toast } = useToast();
 
@@ -61,30 +60,31 @@ export function NewRequestDialog() {
     return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     setSubmitting(true);
-    // Simulated network latency so the loading state is visible; in a real
-    // deployment this would be an await on the api-client-react mutation.
-    setTimeout(() => {
-      addRequest({
-        hospital: user?.hospitalName || "Your Hospital",
+    try {
+      await addRequest({
         location: form.location.trim(),
         bloodType: form.bloodType,
         units: Number(form.units),
         urgency: form.urgency as Urgency,
       });
-      setSubmitting(false);
       setOpen(false);
       setForm(EMPTY_FORM);
       setErrors({});
       toast({
         title: "Request posted",
-        description: `${form.bloodType} request is now visible to nearby donors.`,
+        description: `${form.bloodType} request is now visible to donors.`,
       });
-    }, 600);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Could not post this request.";
+      toast({ title: "Something went wrong", description: message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

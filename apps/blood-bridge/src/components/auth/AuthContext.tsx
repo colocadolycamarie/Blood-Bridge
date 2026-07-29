@@ -1,17 +1,27 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { apiFetch, ApiError } from "@/lib/api";
 
-export type UserRole = "donor" | "hospital" | null;
+export type UserRole = "donor" | "hospital";
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
+  role: UserRole;
+  bloodType: string | null;
+  hospitalName: string | null;
+}
+
+interface RegisterInput {
+  name: string;
+  email: string;
+  password: string;
   role: UserRole;
   bloodType?: string;
   hospitalName?: string;
 }
 
-interface LoginDetails {
+interface ProfileUpdate {
   name?: string;
   bloodType?: string;
   hospitalName?: string;
@@ -20,97 +30,59 @@ interface LoginDetails {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, role: UserRole, details?: LoginDetails) => void;
-  logout: () => void;
-  updateUser: (updates: Partial<Omit<User, "id" | "role">>) => void;
-  emailExists: (email: string) => boolean;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (input: RegisterInput) => Promise<void>;
+  logout: () => Promise<void>;
+  updateProfile: (updates: ProfileUpdate) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const SESSION_KEY = "blood-bridge-user";
-// Local stand-in for a real user database. There is no backend connected in
-// this build, so "accounts" only persist within this browser — but at least
-// they persist consistently across logout/login instead of resetting every time.
-const DIRECTORY_KEY = "blood-bridge-account-directory";
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
-
-function loadDirectory(): Record<string, User> {
-  try {
-    const stored = localStorage.getItem(DIRECTORY_KEY);
-    if (stored) return JSON.parse(stored) as Record<string, User>;
-  } catch {
-    // Corrupted storage — start fresh rather than crash.
-  }
-  return {};
-}
-
-function saveToDirectory(user: User) {
-  const directory = loadDirectory();
-  directory[normalizeEmail(user.email)] = user;
-  localStorage.setItem(DIRECTORY_KEY, JSON.stringify(directory));
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem(SESSION_KEY);
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
-        // Corrupted or outdated data — drop it rather than leave a broken session.
-        localStorage.removeItem(SESSION_KEY);
-      }
-    }
+    apiFetch<{ user: User }>("/auth/me")
+      .then((data) => setUser(data.user))
+      .catch(() => setUser(null))
+      .finally(() => setIsLoading(false));
   }, []);
 
-  const emailExists = (email: string) => {
-    const directory = loadDirectory();
-    return normalizeEmail(email) in directory;
-  };
-
-  const login = (email: string, role: UserRole, details?: LoginDetails) => {
-    const directory = loadDirectory();
-    const existing = directory[normalizeEmail(email)];
-
-    const newUser: User = existing
-      ? { ...existing } // Reuse the saved profile — same browser, same "account."
-      : {
-          id: Math.random().toString(36).substring(7),
-          name: details?.name || email.split("@")[0],
-          email,
-          role,
-          bloodType: role === "donor" ? (details?.bloodType || "O-") : undefined,
-          hospitalName: role === "hospital" ? (details?.hospitalName || "Central General Hospital") : undefined,
-        };
-
-    setUser(newUser);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(newUser));
-    saveToDirectory(newUser);
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem(SESSION_KEY);
-  };
-
-  const updateUser = (updates: Partial<Omit<User, "id" | "role">>) => {
-    setUser((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, ...updates };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(next));
-      saveToDirectory(next);
-      return next;
+  const login = useCallback(async (email: string, password: string) => {
+    const data = await apiFetch<{ user: User }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
     });
-  };
+    setUser(data.user);
+  }, []);
+
+  const register = useCallback(async (input: RegisterInput) => {
+    const data = await apiFetch<{ user: User }>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    setUser(data.user);
+  }, []);
+
+  const logout = useCallback(async () => {
+    await apiFetch("/auth/logout", { method: "POST" });
+    setUser(null);
+  }, []);
+
+  const updateProfile = useCallback(async (updates: ProfileUpdate) => {
+    const data = await apiFetch<{ user: User }>("/profile", {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    });
+    setUser(data.user);
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, updateUser, emailExists }}>
+    <AuthContext.Provider
+      value={{ user, isAuthenticated: !!user, isLoading, login, register, logout, updateProfile }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -123,3 +95,5 @@ export function useAuth() {
   }
   return context;
 }
+
+export { ApiError };

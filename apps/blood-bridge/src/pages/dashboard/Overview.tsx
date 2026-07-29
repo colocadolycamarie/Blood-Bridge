@@ -82,8 +82,8 @@ export default function Overview() {
                   <BellRing className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div>
-                  <p className="font-medium">{req.hospital} needs {req.bloodType}</p>
-                  <p className="text-sm text-muted-foreground">{req.distance} • Posted {new Date(req.postedAt).toLocaleTimeString()}</p>
+                  <p className="font-medium">{req.hospitalName} needs {req.bloodType}</p>
+                  <p className="text-sm text-muted-foreground">{req.location} • Posted {new Date(req.createdAt).toLocaleTimeString()}</p>
                 </div>
               </div>
               <Link href="/dashboard/requests" className="text-sm font-medium text-primary hover:underline">

@@ -1,35 +1,39 @@
 import { Link, useLocation } from "wouter";
-import { useAuth, UserRole } from "@/components/auth/AuthContext";
+import { useAuth, type UserRole } from "@/components/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building2, User } from "lucide-react";
 import { useState } from "react";
 import { Navbar } from "@/components/layout/Navbar";
+import { BLOOD_TYPES } from "@/lib/blood-type-data";
+import { ApiError } from "@/lib/api";
 
 export default function Register() {
-  const { login, emailExists } = useAuth();
+  const { register } = useAuth();
   const [, setLocation] = useLocation();
-  
+
   const [step, setStep] = useState<1 | 2>(1);
-  const [role, setRole] = useState<UserRole>(null);
-  
-  // Form state
+  const [role, setRole] = useState<UserRole | null>(null);
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [bloodType, setBloodType] = useState("");
   const [hospitalName, setHospitalName] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleRoleSelect = (selectedRole: UserRole) => {
     setRole(selectedRole);
     setStep(2);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!role) return;
     if (!name || !email || !password) {
       setError("Please fill in all basic information.");
       return;
@@ -50,13 +54,24 @@ export default function Register() {
       setError("Please provide your hospital name.");
       return;
     }
-    if (emailExists(email)) {
-      setError("An account with this email already exists. Try logging in instead.");
-      return;
+
+    setSubmitting(true);
+    setError("");
+    try {
+      await register({
+        name,
+        email,
+        password,
+        role,
+        bloodType: role === "donor" ? bloodType : undefined,
+        hospitalName: role === "hospital" ? hospitalName : undefined,
+      });
+      setLocation("/dashboard");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not create your account. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-    
-    login(email, role, { name, bloodType: bloodType || undefined, hospitalName: hospitalName || undefined });
-    setLocation("/dashboard");
   };
 
   return (
@@ -70,9 +85,9 @@ export default function Register() {
                 <h1 className="text-4xl font-serif font-bold mb-4">Join Blood Bridge</h1>
                 <p className="text-muted-foreground text-lg">I want to...</p>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <button 
+                <button
                   onClick={() => handleRoleSelect("donor")}
                   className="group flex flex-col items-center text-center p-10 border rounded-2xl bg-card hover:border-primary hover:shadow-md transition-all"
                 >
@@ -83,7 +98,7 @@ export default function Register() {
                   <p className="text-muted-foreground">Receive alerts when your specific blood type is needed urgently nearby.</p>
                 </button>
 
-                <button 
+                <button
                   onClick={() => handleRoleSelect("hospital")}
                   className="group flex flex-col items-center text-center p-10 border rounded-2xl bg-card hover:border-primary hover:shadow-md transition-all"
                 >
@@ -110,15 +125,15 @@ export default function Register() {
                     {error}
                   </div>
                 )}
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" value={name} onChange={e => setName(e.target.value)} className="h-11" />
+                  <Input id="name" value={name} onChange={e => setName(e.target.value)} className="h-11" autoComplete="name" />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="email">Email address</Label>
-                  <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="h-11" />
+                  <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="h-11" autoComplete="email" />
                 </div>
 
                 {role === "donor" && (
@@ -129,7 +144,7 @@ export default function Register() {
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Don't know yet"].map(type => (
+                        {BLOOD_TYPES.map(type => (
                           <SelectItem key={type} value={type}>{type}</SelectItem>
                         ))}
                       </SelectContent>
@@ -143,15 +158,15 @@ export default function Register() {
                     <Input id="hospitalName" value={hospitalName} onChange={e => setHospitalName(e.target.value)} className="h-11" />
                   </div>
                 )}
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" minLength={8} value={password} onChange={e => setPassword(e.target.value)} className="h-11" />
+                  <PasswordInput id="password" minLength={8} value={password} onChange={e => setPassword(e.target.value)} className="h-11" autoComplete="new-password" />
                   <p className="text-xs text-muted-foreground">At least 8 characters.</p>
                 </div>
 
-                <Button type="submit" className="w-full h-12 text-lg mt-6">
-                  Create Account
+                <Button type="submit" className="w-full h-12 text-lg mt-6" disabled={submitting}>
+                  {submitting ? "Creating account…" : "Create Account"}
                 </Button>
               </form>
 

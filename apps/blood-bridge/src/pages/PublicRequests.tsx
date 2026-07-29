@@ -63,11 +63,11 @@ export default function PublicRequests() {
                         >
                           {req.urgency}
                         </Badge>
-                        <h3 className="font-medium truncate">{req.hospital}</h3>
+                        <h3 className="font-medium truncate">{req.hospitalName}</h3>
                       </div>
                       <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
                         <MapPin className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
-                        {req.location} &middot; {req.distance} away &middot; {req.units} units needed
+                        {req.location} &middot; {req.units} units needed
                       </p>
                     </div>
                   </div>

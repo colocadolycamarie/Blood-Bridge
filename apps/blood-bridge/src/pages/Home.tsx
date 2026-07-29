@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { useRequests } from "@/lib/store/requests-store";
-import { bloodTypeCompatibility } from "@/lib/mock-data";
+import { bloodTypeCompatibility } from "@/lib/blood-type-data";
 import { Button } from "@/components/ui/button";
 import { MapPin, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -89,10 +89,10 @@ function Hero() {
                       </Badge>
                       <span className="text-2xl font-bold font-serif">{req.bloodType}</span>
                     </div>
-                    <h4 className="font-medium text-lg">{req.hospital}</h4>
+                    <h4 className="font-medium text-lg">{req.hospitalName}</h4>
                     <p className="text-muted-foreground flex items-center gap-1.5 mt-1 text-sm">
                       <MapPin className="h-3.5 w-3.5" />
-                      {req.distance} away
+                      {req.location}
                     </p>
                   </div>
                   <div className="text-right">

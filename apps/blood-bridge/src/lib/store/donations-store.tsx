@@ -1,9 +1,14 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { mockDonations } from "@/lib/mock-data";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/components/auth/AuthContext";
 
-const STORAGE_KEY = "blood-bridge-donations";
-
-export type Donation = (typeof mockDonations)[number];
+export interface Donation {
+  id: string;
+  hospitalName: string;
+  bloodType: string;
+  donatedOn: string;
+  status: string;
+}
 
 interface NewDonationInput {
   date: string;
@@ -13,40 +18,41 @@ interface NewDonationInput {
 
 interface DonationsContextType {
   donations: Donation[];
-  addDonation: (input: NewDonationInput) => Donation;
+  isLoading: boolean;
+  addDonation: (input: NewDonationInput) => Promise<Donation>;
 }
 
 const DonationsContext = createContext<DonationsContextType | undefined>(undefined);
 
-function loadInitial(): Donation[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored) as Donation[];
-  } catch {
-    // Corrupted storage — fall back to seed data.
-  }
-  return mockDonations;
-}
-
 export function DonationsProvider({ children }: { children: ReactNode }) {
-  const [donations, setDonations] = useState<Donation[]>(loadInitial);
+  const { isAuthenticated } = useAuth();
+  const [donations, setDonations] = useState<Donation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(donations));
-  }, [donations]);
+    if (!isAuthenticated) {
+      setDonations([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    apiFetch<{ donations: Donation[] }>("/donations")
+      .then((data) => setDonations(data.donations))
+      .catch(() => setDonations([]))
+      .finally(() => setIsLoading(false));
+  }, [isAuthenticated]);
 
-  const addDonation = (input: NewDonationInput) => {
-    const record: Donation = {
-      id: `DON-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-      status: "Completed",
-      ...input,
-    };
-    setDonations((prev) => [record, ...prev]);
-    return record;
-  };
+  const addDonation = useCallback(async (input: NewDonationInput) => {
+    const data = await apiFetch<{ donation: Donation }>("/donations", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    setDonations((prev) => [data.donation, ...prev]);
+    return data.donation;
+  }, []);
 
   return (
-    <DonationsContext.Provider value={{ donations, addDonation }}>
+    <DonationsContext.Provider value={{ donations, isLoading, addDonation }}>
       {children}
     </DonationsContext.Provider>
   );

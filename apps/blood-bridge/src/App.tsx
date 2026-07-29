@@ -4,6 +4,7 @@ import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { AuthProvider } from './components/auth/AuthContext';
 import { RequestsProvider } from './lib/store/requests-store';
 import { DonationsProvider } from './lib/store/donations-store';
+import { ScrollToTop } from './components/ScrollToTop';
 
 // Pages
 import Home from './pages/Home';
@@ -62,6 +63,7 @@ function App() {
         <DonationsProvider>
           <TooltipProvider>
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+              <ScrollToTop />
               <Router />
             </WouterRouter>
             <Toaster />

@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { bloodTypeCompatibility } from "@/lib/mock-data";
+import { bloodTypeCompatibility } from "@/lib/blood-type-data";
 import { Droplet } from "lucide-react";
 
 export default function BloodTypes() {
