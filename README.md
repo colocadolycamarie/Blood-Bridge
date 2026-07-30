@@ -44,9 +44,8 @@ blood-bridge/
 │   ├── api-spec/          # OpenAPI spec + Orval codegen config
 │   ├── api-zod/           # generated Zod schemas
 │   └── db/                # Drizzle ORM schema + client
-├── scripts/                # repo-maintenance scripts (e.g. post-merge hook)
-└── docs/
-    └── design-system.md    # UI/UX design spec
+└── scripts/                # repo-maintenance scripts (e.g. post-merge hook)
+
 ```
 
 ## Stack
