@@ -1,37 +1,18 @@
-import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { useRequests } from "@/lib/store/requests-store";
 import { bloodTypeCompatibility } from "@/lib/blood-type-data";
 import { Button } from "@/components/ui/button";
-import { MapPin, Activity } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
-// 1. Hero with live request ticker
+// 1. Hero
 function Hero() {
-  const { requests } = useRequests();
-  const [tickerActive, setTickerActive] = useState(true);
-  const [visibleRequestIndex, setVisibleRequestIndex] = useState(0);
-
-  useEffect(() => {
-    if (!tickerActive || requests.length === 0) return;
-    const interval = setInterval(() => {
-      setVisibleRequestIndex((prev) => (prev + 1) % requests.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [tickerActive, requests.length]);
-
-  const req = requests[visibleRequestIndex % Math.max(requests.length, 1)];
-
   return (
-    <section className="relative pt-24 pb-32 overflow-hidden bg-background">
+    <section className="relative pt-24 pb-32 lg:py-0 overflow-hidden bg-background">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background" />
-      
+
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          <div className="max-w-2xl">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center lg:items-stretch lg:min-h-[720px]">
+          <div className="max-w-2xl lg:self-center">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-bold text-foreground leading-[1.1] mb-8">
               Turn intent into <br />
               <span className="text-primary italic">immediate action.</span>
@@ -53,64 +34,23 @@ function Hero() {
             </div>
           </div>
 
-          <div className="lg:justify-self-end w-full max-w-md">
-            <div 
-              className="bg-card border rounded-2xl p-6 shadow-xl relative"
-              onMouseEnter={() => setTickerActive(false)}
-              onMouseLeave={() => setTickerActive(true)}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Live Request Ticker</h3>
-                {tickerActive ? (
-                  <Activity className="h-4 w-4 text-primary animate-pulse" />
-                ) : (
-                  <span className="text-xs text-muted-foreground font-medium">Paused</span>
-                )}
-              </div>
+          {/* Mobile / tablet: image sits in normal flow, contained */}
+          <div className="lg:hidden w-full max-w-xl mx-auto">
+            <img
+              src="/hero-illustration.png"
+              alt="A donor's arm with an IV line feeding a blood bag, connecting to a recipient's arm — representing donor-to-hospital matching"
+              className="w-full h-auto"
+            />
+          </div>
 
-              {!req ? (
-                <p className="text-sm text-muted-foreground py-6 text-center">
-                  No active requests right now. Check back soon.
-                </p>
-              ) : (
-              <div className="space-y-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge 
-                        className={cn(
-                          "px-2 py-0.5",
-                          req.urgency === "Critical" && "bg-destructive text-destructive-foreground",
-                          req.urgency === "Urgent" && "bg-warning text-warning-foreground",
-                          req.urgency === "Routine" && "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {req.urgency}
-                      </Badge>
-                      <span className="text-2xl font-bold font-serif">{req.bloodType}</span>
-                    </div>
-                    <h4 className="font-medium text-lg">{req.hospitalName}</h4>
-                    <p className="text-muted-foreground flex items-center gap-1.5 mt-1 text-sm">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {req.location}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-3xl font-bold font-serif">{req.units}</p>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Units</p>
-                  </div>
-                </div>
-                
-                <div className="pt-6">
-                  <Link href="/register">
-                    <Button className="w-full">
-                      I Can Donate Now
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-              )}
-            </div>
+          {/* Desktop: image fills the grid column top-to-bottom — its right edge lines up
+              with the container's right padding, same edge as the Sign Up button in the navbar */}
+          <div className="hidden lg:block relative">
+            <img
+              src="/hero-illustration.png"
+              alt="A donor's arm with an IV line feeding a blood bag, connecting to a recipient's arm — representing donor-to-hospital matching"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
           </div>
         </div>
       </div>
